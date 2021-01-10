@@ -41,6 +41,7 @@ do
                 $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/graph_decode/ \
                 $LOCAL_OUT_DIR/asr/data_${task}/ $MDL/${childID}_${task}_decode || { all_tasks=false && continue; }
             task_stage=6
+            mv $MDL/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/${childID}_${task}_decode
             echo $task_stage > $LOCAL_OUT_DIR/asr/data_$task/stage
         fi
 
@@ -51,7 +52,7 @@ do
             
             ./local/kws_data_prep.sh $LOCAL_OUT_DIR/asr/data_${task}/lang $LOCAL_OUT_DIR/asr/data_${task}/ $LOCAL_OUT_DIR/asr/data_${task}/kws || { all_tasks=false && continue; }
             
-            ./steps/make_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $MDL/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/kws/ || { all_tasks=false && continue; }
+            ./steps/make_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $LOCAL_OUT_DIR/asr/data_${task}/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/kws/ || { all_tasks=false && continue; }
             
             ./steps/search_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/kws || { all_tasks=false && continue; }
             
