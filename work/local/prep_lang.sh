@@ -33,25 +33,27 @@ do
     childID=$direct
 
     LOCAL_OUT_DIR=$DIR/$direct
+    log=$LOCAL_OUT_DIR/prep_lang.log
 
     [ -f $LOCAL_OUT_DIR/stage ] && stage=`cat $LOCAL_OUT_DIR/stage`
 
     [ $stage -ne 3 ] && continue
 
     #Fix data dir
-    ./utils/data/fix_data_dir.sh $LOCAL_OUT_DIR/asr/data/
+    ./utils/data/fix_data_dir.sh $LOCAL_OUT_DIR/asr/data/ 2>&1 | tee -a $log
 
     #Split data dir into tasks
     for task in $tasks
     do
-        #Get task stage 
+        #Get task stage
+        echo "prep_lang: Child $childID: Start processing task $task" 2>&1 | tee -a $log 
         [ -f $LOCAL_OUT_DIR/data_${task}/stage ] && task_stage=`cat $LOCAL_OUT_DIR/stage`
 
         [ $task_stage -eq 4 ] && continue
 
         grep $task $LOCAL_OUT_DIR/asr/data/segments | cut -d' ' -f1 > list_$task ||  { all_tasks=false && continue; }
         
-        ./utils/data/subset_data_dir.sh --utt-list list_$task $LOCAL_OUT_DIR/asr/data $LOCAL_OUT_DIR/asr/data_$task || { all_tasks=false && continue; }
+        ./utils/data/subset_data_dir.sh --utt-list list_$task $LOCAL_OUT_DIR/asr/data $LOCAL_OUT_DIR/asr/data_$task 2>&1 | tee -a $log || { all_tasks=false && continue; }
         
         rm list_$task
         
@@ -73,9 +75,9 @@ do
         else
             cat lexicon_au_asr.dict | sort -u > $LOCAL_OUT_DIR/asr/data_$task/dict/au_dict
         fi
-        ./local/prep_dict_dir.sh $LOCAL_OUT_DIR/asr/data_$task/dict/au_dict $LOCAL_OUT_DIR/asr/data_$task/dict || { all_tasks=false && continue; }
-        ./utils/prepare_lang.sh $LOCAL_OUT_DIR/asr/data_$task/dict "<UNK>" $LOCAL_OUT_DIR/asr/data_$task/local/lang $LOCAL_OUT_DIR/asr/data_$task/lang || { all_tasks=false && continue; }
-        ./local/prep_lm.sh $LOCAL_OUT_DIR/asr/data_$task $ngr || { all_tasks=false && continue; }
+        ./local/prep_dict_dir.sh $LOCAL_OUT_DIR/asr/data_$task/dict/au_dict $LOCAL_OUT_DIR/asr/data_$task/dict 2>&1 | tee -a $log || { all_tasks=false && continue; }
+        ./utils/prepare_lang.sh $LOCAL_OUT_DIR/asr/data_$task/dict "<UNK>" $LOCAL_OUT_DIR/asr/data_$task/local/lang $LOCAL_OUT_DIR/asr/data_$task/lang 2>&1 | tee -a $log || { all_tasks=false && continue; }
+        ./local/prep_lm.sh $LOCAL_OUT_DIR/asr/data_$task $ngr 2>&1 | tee -a $log || { all_tasks=false && continue; }
         echo 4 > $LOCAL_OUT_DIR/asr/data_$task/stage
     done
     $all_tasks && echo 4 > $LOCAL_OUT_DIR/stage

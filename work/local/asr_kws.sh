@@ -18,19 +18,21 @@ do
 
     childID=$direct
     LOCAL_OUT_DIR=$DIR/$direct
+    log=$LOCAL_OUT_DIR/asr_kws.log
 
     [ -f $LOCAL_OUT_DIR/stage ] && stage=`cat $LOCAL_OUT_DIR/stage`
     echo $stage
     [ $stage -eq 3 ] || [ $stage -eq 4 ] || { echo "Run prep_lang.sh first for child $childID" ; continue; }
     for task in $tasks
     do
+        echo "asr_align: Child $childID: Start processing task $task" 2>&1 | tee -a $log
         [ -f $LOCAL_OUT_DIR/asr/data_$task/stage ] && task_stage=`cat $LOCAL_OUT_DIR/asr/data_$task/stage`
         echo $task_stage
         [ ! $task_stage -ge 4 ] && { echo "Seems that prep_lang.sh faild for child $childID task $task" ; all_tasks=false; continue; }
         [ ! -f $LOCAL_OUT_DIR/asr/data_$task/kws_stage ] && cp $LOCAL_OUT_DIR/asr/data_$task/stage $LOCAL_OUT_DIR/asr/data_$task/kws_stage
         kws_stage=`cat $LOCAL_OUT_DIR/asr/data_$task/kws_stage`
         if [ $kws_stage -eq 4 ]; then
-            utils/mkgraph.sh --self-loop-scale 1.0 $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $MDL/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/graph_decode/ || { all_tasks=false && continue; }
+            utils/mkgraph.sh --self-loop-scale 1.0 $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $MDL/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/graph_decode/ 2>&1 | tee -a $log || { all_tasks=false && continue; }
             align_stage=5
             echo $kws_stage > $LOCAL_OUT_DIR/asr/data_$task/kws_stage
         fi
@@ -41,7 +43,7 @@ do
                 --nj 1 --cmd "$decode_cmd" \
                 --skip_scoring true \
                 $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/graph_decode/ \
-                $LOCAL_OUT_DIR/asr/data_${task}/ $MDL/${childID}_${task}_decode || { all_tasks=false && continue; }
+                $LOCAL_OUT_DIR/asr/data_${task}/ $MDL/${childID}_${task}_decode 2>&1 | tee -a $log || { all_tasks=false && continue; }
             kws_stage=6
             mv $MDL/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/${childID}_${task}_decode
             echo $kws_stage > $LOCAL_OUT_DIR/asr/data_$task/kws_stage
@@ -52,11 +54,11 @@ do
             
             cat $LOCAL_OUT_DIR/asr/data_${task}/text | cut -d' ' -f2- | tr [:lower:] [:upper:] | sort -u > $LOCAL_OUT_DIR/asr/data_${task}/kws/raw_keywords.txt || { all_tasks=false && continue; }
             
-            ./local/kws_data_prep.sh $LOCAL_OUT_DIR/asr/data_${task}/lang $LOCAL_OUT_DIR/asr/data_${task}/ $LOCAL_OUT_DIR/asr/data_${task}/kws || { all_tasks=false && continue; }
+            ./local/kws_data_prep.sh $LOCAL_OUT_DIR/asr/data_${task}/lang $LOCAL_OUT_DIR/asr/data_${task}/ $LOCAL_OUT_DIR/asr/data_${task}/kws 2>&1 | tee -a $log || { all_tasks=false && continue; }
             
-            ./steps/make_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $LOCAL_OUT_DIR/asr/data_${task}/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/kws/ || { all_tasks=false && continue; }
+            ./steps/make_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/lang_test3gr/ $LOCAL_OUT_DIR/asr/data_${task}/${childID}_${task}_decode $LOCAL_OUT_DIR/asr/data_${task}/kws/ 2>&1 | tee -a $log || { all_tasks=false && continue; }
             
-            ./steps/search_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/kws || { all_tasks=false && continue; }
+            ./steps/search_index.sh $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/asr/data_${task}/kws 2>&1 | tee -a $log || { all_tasks=false && continue; }
             
             gunzip -c $LOCAL_OUT_DIR/asr/data_${task}/kws/result.*.gz > $LOCAL_OUT_DIR/asr/data_${task}/kws/results || { all_tasks=false && continue; }
 
@@ -67,7 +69,7 @@ do
         fi
         if [ $kws_stage -eq 7 ]; then
 
-            local/kws_to_txtgrid.py -tg $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}.txtgrid $LOCAL_OUT_DIR/asr/data_${task}/kws/results $LOCAL_OUT_DIR/asr/data_${task}/ $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}.wav  $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}_kws2.txtgrid || { all_tasks=false && continue; }
+            local/kws_to_txtgrid.py -tg $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}.txtgrid $LOCAL_OUT_DIR/asr/data_${task}/kws/results $LOCAL_OUT_DIR/asr/data_${task}/ $LOCAL_OUT_DIR/asr/data_${task}/kws/ $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}.wav  $LOCAL_OUT_DIR/txtgrids/primary_16b_${task}_kws2.txtgrid 2>&1 | tee -a $log || { all_tasks=false && continue; }
 
             kws_stage=8
             echo $kws_stage > $LOCAL_OUT_DIR/asr/data_$task/kws_stage
